@@ -8,12 +8,13 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { Separator } from "@workspace/ui/components/separator"
-import { FilePlus, FolderOpen, Save } from "lucide-react"
+import { FilePlus, FolderOpen, Save, Undo2, Redo2 } from "lucide-react"
 import { useProject } from "@/lib/project-store"
 import { NewProjectDialog } from "./new-project-dialog"
 
 export function Toolbar() {
-  const { newProject, openProject, save } = useProject()
+  const { newProject, openProject, save, undo, redo, canUndo, canRedo } =
+    useProject()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -53,6 +54,38 @@ export function Toolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Open Project</TooltipContent>
+        </Tooltip>
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={!canUndo}
+              onClick={undo}
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Undo <kbd className="ml-1 text-xs opacity-60">Ctrl+Z</kbd>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={!canRedo}
+              onClick={redo}
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Redo{" "}
+            <kbd className="ml-1 text-xs opacity-60">Ctrl+Shift+Z</kbd>
+          </TooltipContent>
         </Tooltip>
         <Separator orientation="vertical" className="mx-0.5 h-5" />
         <Tooltip>

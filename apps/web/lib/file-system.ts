@@ -1,4 +1,5 @@
-import type { GardenProject } from "./types"
+import type { GardenProject, GardenProjectAny } from "./types"
+import { migrateProject } from "./types"
 
 declare global {
   interface Window {
@@ -10,84 +11,118 @@ declare global {
       types?: { description: string; accept: Record<string, string[]> }[]
       suggestedName?: string
     }) => Promise<FileSystemFileHandle>
+    showDirectoryPicker?: (options?: {
+      id?: string
+      mode?: "read" | "readwrite"
+      startIn?: string
+    }) => Promise<FileSystemDirectoryHandle>
   }
 }
 
 const STORAGE_KEY = "garden-designer-project"
-const FILE_TYPES = [
-  {
-    description: "Garden Project",
-    accept: { "application/json": [".garden.json"] },
-  },
-]
+const PROJECT_FILE = "project.json"
+const ASSETS_DIR = "assets"
 
-// --- File System Access API ---
+// --- Directory-based project format ---
 
-export async function openProjectFile(): Promise<{
+export async function openProjectDirectory(): Promise<{
   project: GardenProject
-  handle: FileSystemFileHandle | null
+  dirHandle: FileSystemDirectoryHandle | null
 }> {
-  if (window.showOpenFilePicker) {
-    const [handle] = await window.showOpenFilePicker({
-      types: FILE_TYPES,
-      multiple: false,
+  if (window.showDirectoryPicker) {
+    const dirHandle = await window.showDirectoryPicker({
+      id: "garden-project",
+      mode: "readwrite",
     })
-    if (!handle) throw new Error("No file selected")
-    const file = await handle.getFile()
+    const fileHandle = await dirHandle.getFileHandle(PROJECT_FILE)
+    const file = await fileHandle.getFile()
     const text = await file.text()
-    const project = JSON.parse(text) as GardenProject
-    return { project, handle: handle ?? null }
+    const project = migrateProject(JSON.parse(text) as GardenProjectAny)
+    return { project, dirHandle }
   }
 
-  // Fallback: hidden file input
+  // Fallback: single JSON file via file input
   return new Promise((resolve, reject) => {
     const input = document.createElement("input")
     input.type = "file"
-    input.accept = ".garden.json,.json"
+    input.accept = ".json"
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return reject(new Error("No file selected"))
       const text = await file.text()
-      const project = JSON.parse(text) as GardenProject
-      resolve({ project, handle: null })
+      const project = migrateProject(JSON.parse(text) as GardenProjectAny)
+      resolve({ project, dirHandle: null })
     }
     input.oncancel = () => reject(new Error("Cancelled"))
     input.click()
   })
 }
 
-export async function saveProjectFile(
+export async function saveProjectToDirectory(
   project: GardenProject,
-  handle: FileSystemFileHandle
+  dirHandle: FileSystemDirectoryHandle
 ): Promise<void> {
-  const writable = await handle.createWritable()
+  const fileHandle = await dirHandle.getFileHandle(PROJECT_FILE, { create: true })
+  const writable = await fileHandle.createWritable()
   await writable.write(JSON.stringify(project, null, 2))
   await writable.close()
 }
 
-export async function saveProjectFileAs(
+export async function saveProjectNewDirectory(
   project: GardenProject
-): Promise<FileSystemFileHandle | null> {
-  if (window.showSaveFilePicker) {
-    const handle = await window.showSaveFilePicker({
-      types: FILE_TYPES,
-      suggestedName: `${project.name.toLowerCase().replace(/\s+/g, "-")}.garden.json`,
+): Promise<FileSystemDirectoryHandle | null> {
+  if (window.showDirectoryPicker) {
+    const dirHandle = await window.showDirectoryPicker({
+      id: "garden-project",
+      mode: "readwrite",
     })
-    await saveProjectFile(project, handle)
-    return handle
+    // Create assets directory
+    await dirHandle.getDirectoryHandle(ASSETS_DIR, { create: true })
+    await saveProjectToDirectory(project, dirHandle)
+    return dirHandle
   }
 
-  // Fallback: download via blob
+  // Fallback: download as single JSON
   const blob = new Blob([JSON.stringify(project, null, 2)], {
     type: "application/json",
   })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = `${project.name.toLowerCase().replace(/\s+/g, "-")}.garden.json`
+  a.download = `${project.name.toLowerCase().replace(/\s+/g, "-")}.project.json`
   a.click()
   URL.revokeObjectURL(url)
   return null
+}
+
+// --- Asset management ---
+
+export async function saveAsset(
+  dirHandle: FileSystemDirectoryHandle,
+  file: File,
+  filename: string
+): Promise<string> {
+  const assetsDir = await dirHandle.getDirectoryHandle(ASSETS_DIR, { create: true })
+  const fileHandle = await assetsDir.getFileHandle(filename, { create: true })
+  const writable = await fileHandle.createWritable()
+  await writable.write(file)
+  await writable.close()
+  return `${ASSETS_DIR}/${filename}`
+}
+
+export async function loadAssetAsObjectUrl(
+  dirHandle: FileSystemDirectoryHandle,
+  assetPath: string
+): Promise<string> {
+  const parts = assetPath.split("/")
+  let currentDir: FileSystemDirectoryHandle = dirHandle
+  // Navigate to subdirectories
+  for (let i = 0; i < parts.length - 1; i++) {
+    currentDir = await currentDir.getDirectoryHandle(parts[i]!)
+  }
+  const fileHandle = await currentDir.getFileHandle(parts[parts.length - 1]!)
+  const file = await fileHandle.getFile()
+  return URL.createObjectURL(file)
 }
 
 // --- localStorage backup ---
@@ -104,7 +139,7 @@ export function loadFromLocalStorage(): GardenProject | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as GardenProject
+    return migrateProject(JSON.parse(raw) as GardenProjectAny)
   } catch {
     return null
   }

@@ -15,7 +15,11 @@ import { Button } from "@workspace/ui/components/button"
 interface NewProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (name: string, widthMeters: number, depthMeters: number) => void
+  onCreate: (
+    name: string,
+    widthMeters: number,
+    depthMeters: number
+  ) => Promise<void> | void
 }
 
 export function NewProjectDialog({
@@ -27,13 +31,13 @@ export function NewProjectDialog({
   const [width, setWidth] = React.useState("10")
   const [depth, setDepth] = React.useState("6")
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const w = parseFloat(width)
     const d = parseFloat(depth)
     if (!name.trim() || isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return
-    onCreate(name.trim(), w, d)
     onOpenChange(false)
+    await onCreate(name.trim(), w, d)
   }
 
   return (
