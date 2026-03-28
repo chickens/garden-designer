@@ -1,12 +1,12 @@
 {
   "name": "My Garden",
-  "activeVersionId": "ce944ac7-7c83-438c-acda-63cb46ff4bf9",
+  "activeVersionId": "fd6d95f7-db8d-4830-99ea-8338689f4e29",
   "versions": [
     {
-      "id": "ce944ac7-7c83-438c-acda-63cb46ff4bf9",
+      "id": "fd6d95f7-db8d-4830-99ea-8338689f4e29",
       "name": "Original",
-      "filename": "designs/original-ce944ac7.json",
-      "createdAt": "2026-03-28T13:33:01.396Z"
+      "filename": "designs/original-fd6d95f7.json",
+      "createdAt": "2026-03-28T18:32:31.002Z"
     }
   ]
 }

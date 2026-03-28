@@ -50,6 +50,7 @@ export function CreatePlantDialog({
   const [error, setError] = React.useState<string | null>(null)
 
   // Form state
+  const [description, setDescription] = React.useState("")
   const [commonName, setCommonName] = React.useState("")
   const [botanicalName, setBotanicalName] = React.useState("")
   const [category, setCategory] = React.useState<PlantCategory>("perennial")
@@ -67,6 +68,7 @@ export function CreatePlantDialog({
     setStep("name")
     setLoading(false)
     setError(null)
+    setDescription("")
     setCommonName("")
     setBotanicalName("")
     setCategory("perennial")
@@ -82,7 +84,7 @@ export function CreatePlantDialog({
   }
 
   async function handleLookup() {
-    if (!commonName.trim()) return
+    if (!description.trim()) return
     setLoading(true)
     setError(null)
 
@@ -90,7 +92,7 @@ export function CreatePlantDialog({
       const res = await fetch("/api/plant-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commonName: commonName.trim() }),
+        body: JSON.stringify({ description: description.trim() }),
       })
 
       if (!res.ok) {
@@ -101,7 +103,7 @@ export function CreatePlantDialog({
       const data = await res.json()
 
       // Populate form
-      setCommonName(data.commonName ?? commonName)
+      setCommonName(data.commonName ?? description)
       setBotanicalName(data.botanicalName ?? "")
       setCategory(data.category ?? "perennial")
       setHeightMin(String(data.heightMin ?? 30))
@@ -124,6 +126,7 @@ export function CreatePlantDialog({
   }
 
   function handleSkip() {
+    setCommonName(description)
     setStep("details")
   }
 
@@ -178,20 +181,20 @@ export function CreatePlantDialog({
         {step === "name" ? (
           <div className="grid gap-4 py-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="cp-name" className="text-xs">
-                Common Name
+              <Label htmlFor="cp-desc" className="text-xs">
+                Describe the plant
               </Label>
               <Input
-                id="cp-name"
-                value={commonName}
-                onChange={(e) => setCommonName(e.target.value)}
+                id="cp-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
                     handleLookup()
                   }
                 }}
-                placeholder="e.g. Lavender, Japanese Maple..."
+                placeholder="e.g. multi-stem silver birch, tall sunflower..."
                 autoFocus
               />
             </div>
@@ -205,14 +208,14 @@ export function CreatePlantDialog({
                 type="button"
                 variant="outline"
                 onClick={handleSkip}
-                disabled={!commonName.trim() || loading}
+                disabled={!description.trim() || loading}
               >
                 Skip AI
               </Button>
               <Button
                 type="button"
                 onClick={handleLookup}
-                disabled={!commonName.trim() || loading}
+                disabled={!description.trim() || loading}
               >
                 {loading ? (
                   <>

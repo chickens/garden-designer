@@ -336,6 +336,15 @@ export interface CameraState {
   scale: number
 }
 
+export interface Camera3DState {
+  alpha: number
+  beta: number
+  radius: number
+  targetX: number
+  targetY: number
+  targetZ: number
+}
+
 export interface GardenProject {
   version: 2
   name: string
@@ -344,6 +353,7 @@ export interface GardenProject {
   activePhase: DesignPhase
   viewMode?: ViewMode
   camera?: CameraState
+  camera3d?: Camera3DState
   phases: PhaseData
   items: GardenItem[] // alias for phases.detailed.items
 }

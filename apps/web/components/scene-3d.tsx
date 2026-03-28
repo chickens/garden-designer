@@ -3,12 +3,24 @@
 import * as React from "react"
 import { useProject } from "@/lib/project-store"
 import { useTheme } from "next-themes"
+import type { PlantDefinition, PlantPlacement, PlantingData } from "@/lib/types"
+import { getCachedTextureUrl } from "@/lib/plant-textures"
 
 export function Scene3D() {
-  const { project } = useProject()
+  const { project, getPlantTexture, loadPlantTexture, setCamera3d } = useProject()
   const { resolvedTheme } = useTheme()
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const engineRef = React.useRef<any>(null)
+  const sceneRef = React.useRef<any>(null)
+  const plantMeshesRef = React.useRef<Map<string, any>>(new Map())
+
+  const plantingData = project?.phases?.planting as PlantingData | undefined
+  const placements = plantingData?.placements ?? []
+  const plantDefs = plantingData?.plantDefinitions ?? {}
+
+  const placementsKey = JSON.stringify(
+    placements.map((p) => `${p.id}:${p.plantId}:${p.x}:${p.y}`)
+  )
 
   React.useEffect(() => {
     const canvas = canvasRef.current
@@ -20,7 +32,6 @@ export function Scene3D() {
       const BABYLON = await import("babylonjs")
       if (disposed) return
 
-      // Clean up previous engine
       if (engineRef.current) {
         engineRef.current.dispose()
       }
@@ -36,17 +47,23 @@ export function Scene3D() {
       engineRef.current = engine
 
       const scene = new BABYLON.Scene(engine)
+      sceneRef.current = scene
       scene.clearColor = isDark
         ? new BABYLON.Color4(0.04, 0.04, 0.04, 1)
         : new BABYLON.Color4(0.96, 0.96, 0.96, 1)
 
-      // Camera
+      // Camera — restore saved position or use default
+      const saved3d = project!.camera3d
       const camera = new BABYLON.ArcRotateCamera(
         "camera",
-        -Math.PI / 4,
-        Math.PI / 3,
-        Math.max(wMeters, dMeters) * 1.5,
-        new BABYLON.Vector3(wMeters / 2, 0, dMeters / 2),
+        saved3d?.alpha ?? -Math.PI / 4,
+        saved3d?.beta ?? Math.PI / 3,
+        saved3d?.radius ?? Math.max(wMeters, dMeters) * 1.5,
+        new BABYLON.Vector3(
+          saved3d?.targetX ?? wMeters / 2,
+          saved3d?.targetY ?? 0,
+          saved3d?.targetZ ?? dMeters / 2
+        ),
         scene
       )
       camera.lowerRadiusLimit = 1
@@ -54,6 +71,19 @@ export function Scene3D() {
       camera.lowerBetaLimit = 0.1
       camera.upperBetaLimit = Math.PI / 2 - 0.05
       camera.attachControl(canvas, true)
+
+      // Save camera state on change
+      camera.onViewMatrixChangedObservable.add(() => {
+        if (disposed) return
+        setCamera3d({
+          alpha: camera.alpha,
+          beta: camera.beta,
+          radius: camera.radius,
+          targetX: camera.target.x,
+          targetY: camera.target.y,
+          targetZ: camera.target.z,
+        })
+      })
 
       // Lights
       const hemi = new BABYLON.HemisphericLight(
@@ -78,20 +108,16 @@ export function Scene3D() {
       )
       ground.position = new BABYLON.Vector3(wMeters / 2, 0, dMeters / 2)
 
-      // DynamicTexture grid
       const texSize = 2048
       const dt = new BABYLON.DynamicTexture("gridTex", texSize, scene, true)
       const dtCtx = dt.getContext()
 
-      // Fill with garden color
       dtCtx.fillStyle = isDark ? "#1a1f14" : "#f0f5e8"
       dtCtx.fillRect(0, 0, texSize, texSize)
 
-      // Draw grid on texture
       const pxPerMeterW = texSize / wMeters
       const pxPerMeterD = texSize / dMeters
 
-      // Minor grid (every 5cm = 0.05m)
       dtCtx.strokeStyle = isDark
         ? "rgba(255,255,255,0.06)"
         : "rgba(0,0,0,0.06)"
@@ -111,7 +137,6 @@ export function Scene3D() {
         dtCtx.stroke()
       }
 
-      // Major grid (every 1m)
       dtCtx.strokeStyle = isDark
         ? "rgba(255,255,255,0.2)"
         : "rgba(0,0,0,0.2)"
@@ -138,7 +163,7 @@ export function Scene3D() {
       groundMat.specularColor = new BABYLON.Color3(0, 0, 0)
       ground.material = groundMat
 
-      // Border: 4 thin boxes
+      // Border boxes
       const borderHeight = 0.1
       const borderThick = 0.04
       const borderColor = isDark
@@ -166,39 +191,88 @@ export function Scene3D() {
         box.material = mat
       }
 
-      // Front & back (along X)
-      createBorder(
-        "borderFront",
-        wMeters,
-        borderHeight,
-        borderThick,
-        wMeters / 2, borderHeight / 2, 0
-      )
-      createBorder(
-        "borderBack",
-        wMeters,
-        borderHeight,
-        borderThick,
-        wMeters / 2, borderHeight / 2, dMeters
-      )
-      // Left & right (along Z)
-      createBorder(
-        "borderLeft",
-        borderThick,
-        borderHeight,
-        dMeters,
-        0, borderHeight / 2, dMeters / 2
-      )
-      createBorder(
-        "borderRight",
-        borderThick,
-        borderHeight,
-        dMeters,
-        wMeters, borderHeight / 2, dMeters / 2
-      )
+      createBorder("borderFront", wMeters, borderHeight, borderThick, wMeters / 2, borderHeight / 2, 0)
+      createBorder("borderBack", wMeters, borderHeight, borderThick, wMeters / 2, borderHeight / 2, dMeters)
+      createBorder("borderLeft", borderThick, borderHeight, dMeters, 0, borderHeight / 2, dMeters / 2)
+      createBorder("borderRight", borderThick, borderHeight, dMeters, wMeters, borderHeight / 2, dMeters / 2)
 
+      // --- Plant billboards ---
+      const newMeshes = new Map<string, any>()
+
+      for (const placement of placements) {
+        const def = plantDefs[placement.plantId] as PlantDefinition | undefined
+        if (!def) continue
+
+        const heightM = ((def.height.max + def.height.min) / 2) / 100
+        const spreadM = ((def.spread.max + def.spread.min) / 2) / 100
+        const quadW = Math.max(spreadM, heightM * 0.6)
+        const quadH = heightM
+
+        const posX = placement.x / 100
+        const posZ = placement.y / 100
+
+        const plane = BABYLON.MeshBuilder.CreatePlane(
+          `plant_${placement.id}`,
+          { width: quadW, height: quadH, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+          scene
+        )
+        plane.position = new BABYLON.Vector3(posX, quadH / 2, posZ)
+
+        const mat = new BABYLON.StandardMaterial(`plantMat_${placement.id}`, scene)
+        mat.specularColor = new BABYLON.Color3(0, 0, 0)
+        mat.backFaceCulling = false
+
+        // Check for cached texture URL (from a previous 3D view)
+        const cachedUrl = getCachedTextureUrl(def.id)
+        if (cachedUrl) {
+          applyTexture(BABYLON, scene, mat, cachedUrl)
+        } else {
+          // Placeholder color
+          const hex = def.color
+          const r = parseInt(hex.slice(1, 3), 16) / 255
+          const g = parseInt(hex.slice(3, 5), 16) / 255
+          const b = parseInt(hex.slice(5, 7), 16) / 255
+          mat.diffuseColor = new BABYLON.Color3(r, g, b)
+          mat.alpha = 0.7
+
+          // Try loading from project directory first, then generate
+          loadPlantTexture(def.id).then((url) => {
+            if (disposed) return
+            if (url) {
+              applyTexture(BABYLON, scene, mat, url)
+              return
+            }
+            // No saved texture — generate one
+            getPlantTexture(def.id, def.commonName, def.botanicalName, def.notes).then(
+              (genUrl) => {
+                if (disposed || !genUrl) return
+                applyTexture(BABYLON, scene, mat, genUrl)
+              }
+            )
+          })
+        }
+
+        plane.material = mat
+        newMeshes.set(placement.id, plane)
+      }
+
+      plantMeshesRef.current = newMeshes
+
+      // Render loop with Y-axis billboard
       engine.runRenderLoop(() => {
-        if (!disposed) scene.render()
+        if (disposed) return
+
+        for (const [, mesh] of plantMeshesRef.current) {
+          if (!mesh || mesh.isDisposed()) continue
+          const camPos = camera.position
+          const meshPos = mesh.position
+          mesh.rotation.y = Math.atan2(
+            camPos.x - meshPos.x,
+            camPos.z - meshPos.z
+          )
+        }
+
+        scene.render()
       })
 
       const onResize = () => engine.resize()
@@ -217,8 +291,10 @@ export function Scene3D() {
         engineRef.current.dispose()
         engineRef.current = null
       }
+      sceneRef.current = null
+      plantMeshesRef.current.clear()
     }
-  }, [project, resolvedTheme])
+  }, [project, resolvedTheme, placementsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <canvas
@@ -227,4 +303,23 @@ export function Scene3D() {
       onContextMenu={(e) => e.preventDefault()}
     />
   )
+}
+
+function applyTexture(
+  BABYLON: any,
+  scene: any,
+  mat: any,
+  url: string
+) {
+  try {
+    const tex = new BABYLON.Texture(url, scene, false, true)
+    tex.hasAlpha = true
+    mat.diffuseTexture = tex
+    mat.useAlphaFromDiffuseTexture = true
+    mat.alphaMode = BABYLON.Engine.ALPHA_COMBINE
+    mat.diffuseColor = new BABYLON.Color3(1, 1, 1)
+    mat.alpha = 1
+  } catch {
+    // Scene may have been disposed
+  }
 }

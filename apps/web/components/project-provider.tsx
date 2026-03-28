@@ -9,8 +9,13 @@ import type {
   PhaseData,
   ProjectManifest,
   CameraState,
+  Camera3DState,
 } from "@/lib/types"
 import { createDefaultProject, createDefaultManifest } from "@/lib/types"
+import {
+  getOrGenerateTexture,
+  loadTextureFromProject,
+} from "@/lib/plant-textures"
 import {
   openProjectDirectory,
   saveDesignVersion,
@@ -230,6 +235,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }, 300) // debounce 300ms
   }, [])
 
+  const camera3dTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setCamera3d = React.useCallback((camera3d: Camera3DState) => {
+    if (camera3dTimerRef.current) clearTimeout(camera3dTimerRef.current)
+    camera3dTimerRef.current = setTimeout(() => {
+      setState((s) => {
+        if (!s.project) return s
+        return { ...s, project: { ...s.project, camera3d } }
+      })
+    }, 300)
+  }, [])
+
   const setActivePhase = React.useCallback((phase: DesignPhase) => {
     setState((s) => {
       if (!s.project) return s
@@ -293,6 +309,21 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       } catch {
         return null
       }
+    },
+    []
+  )
+
+  const getPlantTexture = React.useCallback(
+    async (plantId: string, plantName: string, botanicalName: string, notes?: string): Promise<string | null> => {
+      return getOrGenerateTexture(plantId, plantName, botanicalName, dirHandleRef.current, notes)
+    },
+    []
+  )
+
+  const loadPlantTexture = React.useCallback(
+    async (plantId: string): Promise<string | null> => {
+      if (!dirHandleRef.current) return null
+      return loadTextureFromProject(dirHandleRef.current, plantId)
     },
     []
   )
@@ -470,12 +501,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       updateProject,
       setViewMode,
       setCamera,
+      setCamera3d,
       setActivePhase,
       updatePhaseData,
       undo,
       redo,
       importAsset,
       loadAssetUrl,
+      getPlantTexture,
+      loadPlantTexture,
       switchVersion,
       duplicateVersion,
       deleteVersion: deleteVersionAction,
@@ -490,12 +524,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       updateProject,
       setViewMode,
       setCamera,
+      setCamera3d,
       setActivePhase,
       updatePhaseData,
       undo,
       redo,
       importAsset,
       loadAssetUrl,
+      getPlantTexture,
+      loadPlantTexture,
       switchVersion,
       duplicateVersion,
       deleteVersionAction,

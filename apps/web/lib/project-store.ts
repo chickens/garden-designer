@@ -9,6 +9,7 @@ import type {
   ProjectManifest,
   DesignVersionInfo,
   CameraState,
+  Camera3DState,
 } from "./types"
 
 export interface ProjectState {
@@ -37,7 +38,10 @@ export interface ProjectActions {
   redo: () => void
   importAsset: (file: File, filename: string) => Promise<string | null>
   loadAssetUrl: (assetPath: string) => Promise<string | null>
+  getPlantTexture: (plantId: string, plantName: string, botanicalName: string, notes?: string) => Promise<string | null>
+  loadPlantTexture: (plantId: string) => Promise<string | null>
   setCamera: (camera: CameraState) => void
+  setCamera3d: (camera: Camera3DState) => void
   // Version management
   switchVersion: (versionId: string) => Promise<void>
   duplicateVersion: (newName: string) => Promise<void>

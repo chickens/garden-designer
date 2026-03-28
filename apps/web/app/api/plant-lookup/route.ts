@@ -6,10 +6,11 @@ const openai = new OpenAI({
 })
 
 export async function POST(request: Request) {
-  const { commonName } = await request.json()
+  const body = await request.json()
+  const description = body.description || body.commonName
 
-  if (!commonName || typeof commonName !== "string") {
-    return NextResponse.json({ error: "commonName required" }, { status: 400 })
+  if (!description || typeof description !== "string") {
+    return NextResponse.json({ error: "description required" }, { status: 400 })
   }
 
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "your-key-here") {
@@ -25,9 +26,9 @@ export async function POST(request: Request) {
     messages: [
       {
         role: "system",
-        content: `You are a horticultural expert. Given a plant common name, return accurate plant data as JSON with these exact fields:
+        content: `You are a horticultural expert. Given a plant description, identify the plant and return accurate data as JSON with these exact fields:
 {
-  "commonName": "string - the common name (corrected if misspelled)",
+  "commonName": "string - the standard common name for this plant",
   "botanicalName": "string - full Latin botanical name",
   "category": "one of: shrub, perennial, annual, tree, climber, grass, bulb, fern, herb, vegetable",
   "heightMin": "number - minimum mature height in cm",
@@ -40,13 +41,14 @@ export async function POST(request: Request) {
   "season": ["array of seasons with interest: spring, summer, autumn, winter"],
   "evergreen": "boolean",
   "color": "string - hex color representing the primary flower or foliage color (e.g. #7B68AE for lavender)",
-  "notes": "string - one sentence description of the plant"
+  "notes": "string - one sentence description of the plant, incorporating any specific details from the user's description (e.g. multi-stem form, specific variety)"
 }
+The description may include specific forms, varieties, or cultivars (e.g. "multi-stem silver birch", "dwarf box hedge", "climbing white rose"). Adjust the height/spread/notes accordingly.
 Return ONLY valid JSON. Use realistic horticultural data.`,
       },
       {
         role: "user",
-        content: commonName,
+        content: description,
       },
     ],
   })
