@@ -1,0 +1,15 @@
+{
+  "id": "wisteria",
+  "commonName": "Wisteria",
+  "botanicalName": "Wisteria sinensis",
+  "category": "climber",
+  "height": { "min": 600, "max": 1500 },
+  "spread": { "min": 400, "max": 1000 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["clay", "loam"],
+  "season": ["spring", "summer"],
+  "evergreen": false,
+  "color": "#8A6BBE",
+  "notes": "Magnificent deciduous climber producing long, cascading racemes of fragrant lilac-purple flowers in late spring. Requires strong support and regular pruning twice a year. Can take several years to flower from seed."
+}

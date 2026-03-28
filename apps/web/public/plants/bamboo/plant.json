@@ -1,0 +1,15 @@
+{
+  "id": "bamboo",
+  "commonName": "Bamboo",
+  "botanicalName": "Fargesia murielae",
+  "category": "grass",
+  "height": { "min": 200, "max": 400 },
+  "spread": { "min": 100, "max": 200 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["clay", "loam"],
+  "season": ["spring", "summer", "autumn", "winter"],
+  "evergreen": true,
+  "color": "#228B22",
+  "notes": "Elegant clump-forming bamboo with arching, bright green canes and narrow leaves. Non-invasive unlike many bamboo species. Excellent for screening, hedging, and adding an architectural element. Hardy and wind-tolerant."
+}

@@ -1,0 +1,15 @@
+{
+  "id": "hydrangea",
+  "commonName": "Hydrangea",
+  "botanicalName": "Hydrangea macrophylla",
+  "category": "shrub",
+  "height": { "min": 100, "max": 200 },
+  "spread": { "min": 100, "max": 250 },
+  "sun": "partial",
+  "water": "high",
+  "soil": ["clay", "loam"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#5B8DB8",
+  "notes": "Popular deciduous shrub producing large rounded flower heads in blue, pink, or white depending on soil pH. Blue flowers in acid soil, pink in alkaline. Prefers moisture-retentive soil and shelter from cold winds."
+}

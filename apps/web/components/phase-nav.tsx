@@ -1,10 +1,6 @@
 "use client"
 
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -18,30 +14,27 @@ export function PhaseNav() {
   if (!project) return null
 
   return (
-    <div className="bg-background/80 border-border/50 fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-lg border p-1 shadow-lg backdrop-blur-xl">
-      <ToggleGroup
-        type="single"
-        value={project.activePhase}
-        onValueChange={(v) => {
-          if (v) setActivePhase(v as DesignPhase)
-        }}
-      >
-        {PHASE_ORDER.map((phase) => (
+    <div className="bg-background/80 border-border/50 fixed bottom-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-0 rounded-lg border p-1 shadow-lg backdrop-blur-xl">
+      {PHASE_ORDER.map((phase) => {
+        const isActive = project.activePhase === phase
+        return (
           <Tooltip key={phase}>
             <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value={phase}
-                size="sm"
-                aria-label={PHASE_LABELS[phase]}
-                className="px-2.5 text-xs"
+              <button
+                onClick={() => setActivePhase(phase as DesignPhase)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  isActive
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
               >
                 {PHASE_LABELS[phase]}
-              </ToggleGroupItem>
+              </button>
             </TooltipTrigger>
             <TooltipContent>{PHASE_LABELS[phase]}</TooltipContent>
           </Tooltip>
-        ))}
-      </ToggleGroup>
+        )
+      })}
     </div>
   )
 }

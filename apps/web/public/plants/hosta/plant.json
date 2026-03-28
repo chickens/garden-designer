@@ -1,0 +1,15 @@
+{
+  "id": "hosta",
+  "commonName": "Hosta",
+  "botanicalName": "Hosta fortunei",
+  "category": "perennial",
+  "height": { "min": 30, "max": 60 },
+  "spread": { "min": 45, "max": 75 },
+  "sun": "shade",
+  "water": "medium",
+  "soil": ["clay", "loam"],
+  "season": ["spring", "summer", "autumn"],
+  "evergreen": false,
+  "color": "#4A7C3F",
+  "notes": "Shade-loving herbaceous perennial grown primarily for its bold, decorative foliage. Leaves range from blue-green to gold. Produces spikes of lilac or white flowers in summer. Susceptible to slug and snail damage."
+}

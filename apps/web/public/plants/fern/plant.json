@@ -1,0 +1,15 @@
+{
+  "id": "fern",
+  "commonName": "Male Fern",
+  "botanicalName": "Dryopteris filix-mas",
+  "category": "fern",
+  "height": { "min": 60, "max": 120 },
+  "spread": { "min": 60, "max": 90 },
+  "sun": "shade",
+  "water": "medium",
+  "soil": ["clay", "loam"],
+  "season": ["spring", "summer", "autumn"],
+  "evergreen": false,
+  "color": "#3B7A2C",
+  "notes": "Robust native fern with graceful shuttlecock-shaped fronds. Extremely tolerant and reliable in shady, damp areas. One of the easiest ferns to grow, suitable for woodland gardens and shady borders."
+}

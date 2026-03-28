@@ -8,8 +8,12 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { Separator } from "@workspace/ui/components/separator"
-import { Circle, Trash2 } from "lucide-react"
+import { Circle, Trash2, MousePointer2, Hand } from "lucide-react"
 import { useProject } from "@/lib/project-store"
+import { useOverlays } from "./overlay-controls"
+import { drawPhaseOverlay } from "@/lib/draw-overlays"
+import { copyToClipboard, pasteFromClipboard, offsetItemCenter } from "@/lib/clipboard"
+import { useCanvasCamera } from "@/lib/use-canvas-camera"
 import { useTheme } from "next-themes"
 import type { BubbleZone } from "@/lib/types"
 
@@ -24,20 +28,29 @@ const ZONE_COLORS = [
   "#fb923c", "#2dd4bf", "#e879f9", "#f87171", "#34d399",
 ]
 
-type DragMode = "none" | "pan" | "move" | "resize"
+type DragMode = "none" | "pan" | "move" | "resize" | "marquee"
+
+interface MarqueeRect {
+  x1: number; y1: number; x2: number; y2: number
+}
 
 export function BubbleCanvas() {
-  const { project, updatePhaseData } = useProject()
+  const { project, updatePhaseData, setCamera } = useProject()
   const { resolvedTheme } = useTheme()
+  const overlays = useOverlays()
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const transformRef = React.useRef<Transform>({ offsetX: 0, offsetY: 0, scale: 1 })
   const rafRef = React.useRef<number>(0)
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const selectedId = selectedIds[selectedIds.length - 1] ?? null
   const dragMode = React.useRef<DragMode>("none")
   const lastMouse = React.useRef({ x: 0, y: 0 })
   const resizeHandle = React.useRef<"n" | "s" | "e" | "w" | null>(null)
+  const [handMode, setHandMode] = React.useState(false)
+  const [isPanning, setIsPanning] = React.useState(false)
+  const marqueeRef = React.useRef<MarqueeRect | null>(null)
 
   const zones = project?.phases?.bubble?.zones ?? []
 
@@ -125,6 +138,14 @@ export function BubbleCanvas() {
     ctx.fillStyle = isDark ? "#1a1f14" : "#f0f5e8"
     ctx.fillRect(toScreenX(0), toScreenY(0), gardenW * scale, gardenD * scale)
 
+    // Phase overlays
+    if (project) {
+      const dc = { ctx, toScreenX, toScreenY, scale, isDark }
+      for (const phase of overlays) {
+        drawPhaseOverlay(dc, project, phase, "bubble")
+      }
+    }
+
     // Garden border
     ctx.strokeStyle = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"
     ctx.lineWidth = 2
@@ -161,11 +182,12 @@ export function BubbleCanvas() {
 
       // Stroke
       ctx.strokeStyle = zone.color
-      ctx.lineWidth = zone.id === selectedId ? 3 : 2
+      ctx.lineWidth = selectedIds.includes(zone.id) ? 3 : 2
       ctx.stroke()
 
       // Selection indicator
-      if (zone.id === selectedId) {
+      const isSelected = selectedIds.includes(zone.id)
+      if (isSelected) {
         ctx.setLineDash([6, 3])
         ctx.strokeStyle = isDark ? "#fff" : "#000"
         ctx.lineWidth = 1
@@ -196,28 +218,24 @@ export function BubbleCanvas() {
         ctx.fillText(zone.label, sx, sy, srx * 1.8)
       }
     }
-  }, [project, zones, selectedId, resolvedTheme])
 
-  // Center garden on mount / project change
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container || !project) return
-
-    const rect = container.getBoundingClientRect()
-    const { width: gardenW, depth: gardenD } = project.dimensions
-    const padding = 80
-    const scaleX = (rect.width - padding * 2) / gardenW
-    const scaleY = (rect.height - padding * 2) / gardenD
-    const scale = Math.min(scaleX, scaleY)
-
-    transformRef.current = {
-      scale,
-      offsetX: (rect.width - gardenW * scale) / 2,
-      offsetY: (rect.height - gardenD * scale) / 2,
+    const mq = marqueeRef.current
+    if (mq) {
+      const mx = toScreenX(Math.min(mq.x1, mq.x2))
+      const my = toScreenY(Math.min(mq.y1, mq.y2))
+      const mw = Math.abs(mq.x2 - mq.x1) * scale
+      const mh = Math.abs(mq.y2 - mq.y1) * scale
+      ctx.setLineDash([4, 4])
+      ctx.strokeStyle = isDark ? "rgba(96,165,250,0.8)" : "rgba(59,130,246,0.8)"
+      ctx.lineWidth = 1
+      ctx.strokeRect(mx, my, mw, mh)
+      ctx.fillStyle = isDark ? "rgba(96,165,250,0.1)" : "rgba(59,130,246,0.08)"
+      ctx.fillRect(mx, my, mw, mh)
+      ctx.setLineDash([])
     }
+  }, [project, zones, selectedIds, overlays, resolvedTheme])
 
-    draw()
-  }, [project, draw])
+  const { saveCamera } = useCanvasCamera(containerRef, transformRef, project, setCamera, draw)
 
   // Resize observer
   React.useEffect(() => {
@@ -249,15 +267,29 @@ export function BubbleCanvas() {
 
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(draw)
+      saveCamera()
     }
 
     canvas.addEventListener("wheel", onWheel, { passive: false })
     return () => canvas.removeEventListener("wheel", onWheel)
-  }, [draw])
+  }, [draw, saveCamera])
 
   // Pointer handlers
   function onPointerDown(e: React.PointerEvent) {
+    if (e.button === 1) {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId)
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      dragMode.current = "pan"
+      setIsPanning(true)
+      return
+    }
     if (e.button !== 0) return
+    if (handMode) {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId)
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      dragMode.current = "pan"
+      return
+    }
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
 
@@ -277,13 +309,17 @@ export function BubbleCanvas() {
 
     const hit = hitTest(g.x, g.y)
     if (hit) {
-      setSelectedId(hit.id)
+      if (!selectedIds.includes(hit.id)) {
+        setSelectedIds([hit.id])
+      }
       dragMode.current = "move"
       return
     }
 
-    setSelectedId(null)
-    dragMode.current = "pan"
+    setSelectedIds([])
+    const g2 = screenToGarden(sx, sy)
+    marqueeRef.current = { x1: g2.x, y1: g2.y, x2: g2.x, y2: g2.y }
+    dragMode.current = "marquee"
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -298,14 +334,38 @@ export function BubbleCanvas() {
       transformRef.current.offsetY += dy
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(draw)
+      saveCamera()
       return
     }
 
-    if (dragMode.current === "move" && selectedId) {
+    if (dragMode.current === "marquee") {
+      const rect2 = canvasRef.current?.getBoundingClientRect()
+      if (!rect2) return
+      const g2 = screenToGarden(e.clientX - rect2.left, e.clientY - rect2.top)
+      if (marqueeRef.current) {
+        marqueeRef.current.x2 = g2.x
+        marqueeRef.current.y2 = g2.y
+        const mq = marqueeRef.current
+        const minX = Math.min(mq.x1, mq.x2)
+        const maxX = Math.max(mq.x1, mq.x2)
+        const minY = Math.min(mq.y1, mq.y2)
+        const maxY = Math.max(mq.y1, mq.y2)
+        const hits = zones.filter(
+          (z) => z.cx >= minX && z.cx <= maxX && z.cy >= minY && z.cy <= maxY
+        )
+        setSelectedIds(hits.map((h) => h.id))
+      }
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(draw)
+      return
+    }
+
+    if (dragMode.current === "move" && selectedIds.length > 0) {
       const scale = transformRef.current.scale
+      const idSet = new Set(selectedIds)
       setZones(
         zones.map((z) =>
-          z.id === selectedId
+          idSet.has(z.id)
             ? { ...z, cx: z.cx + dx / scale, cy: z.cy + dy / scale }
             : z
         )
@@ -339,25 +399,66 @@ export function BubbleCanvas() {
   }
 
   function onPointerUp() {
+    if (dragMode.current === "marquee" && marqueeRef.current) {
+      const mq = marqueeRef.current
+      const minX = Math.min(mq.x1, mq.x2)
+      const maxX = Math.max(mq.x1, mq.x2)
+      const minY = Math.min(mq.y1, mq.y2)
+      const maxY = Math.max(mq.y1, mq.y2)
+      const hits = zones.filter((z) => {
+        return z.cx >= minX && z.cx <= maxX && z.cy >= minY && z.cy <= maxY
+      })
+      if (hits.length > 0) setSelectedIds(hits.map((h) => h.id))
+      marqueeRef.current = null
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(draw)
+    }
     dragMode.current = "none"
     resizeHandle.current = null
+    setIsPanning(false)
   }
 
-  // Keyboard: delete selected zone
+  // Keyboard
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (!selectedId) return
-      if (e.key === "Delete" || e.key === "Backspace") {
-        const target = e.target as HTMLElement
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return
+      if (e.key === "Escape") {
+        setHandMode(false)
+        setSelectedIds([])
+        return
+      }
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedIds.length > 0) {
+        const idSet = new Set(selectedIds)
+        copyToClipboard("bubble", zones.filter((z) => idSet.has(z.id)))
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
         e.preventDefault()
-        setZones(zones.filter((z) => z.id !== selectedId))
-        setSelectedId(null)
+        pasteFromClipboard().then((payload) => {
+          if (!payload || payload.phase !== "bubble") return
+          const pasted = (payload.items as typeof zones).map((z) => ({
+            ...offsetItemCenter(z),
+            id: crypto.randomUUID(),
+          }))
+          setZones([...zones, ...pasted])
+          setSelectedIds(pasted.map((p) => p.id))
+        })
+        return
+      }
+
+      if (selectedIds.length === 0) return
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        const idSet = new Set(selectedIds)
+        setZones(zones.filter((z) => !idSet.has(z.id)))
+        setSelectedIds([])
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedId, zones, setZones])
+  }, [selectedIds, zones, setZones])
 
   // --- Toolbar actions ---
 
@@ -377,7 +478,7 @@ export function BubbleCanvas() {
     }
     const updated = [...zones, newZone]
     updatePhaseData("bubble", { zones: updated })
-    setSelectedId(newZone.id)
+    setSelectedIds([newZone.id])
   }, [project, zones, updatePhaseData])
 
   const selected = zones.find((z) => z.id === selectedId)
@@ -391,16 +492,19 @@ export function BubbleCanvas() {
   )
 
   const deleteSelected = React.useCallback(() => {
-    if (!selectedId) return
-    setZones(zones.filter((z) => z.id !== selectedId))
-    setSelectedId(null)
-  }, [selectedId, zones, setZones])
+    if (selectedIds.length === 0) return
+    const idSet = new Set(selectedIds)
+    setZones(zones.filter((z) => !idSet.has(z.id)))
+    setSelectedIds([])
+  }, [selectedIds, zones, setZones])
+
+  const cursorClass = handMode ? "cursor-grab active:cursor-grabbing" : "cursor-default"
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
       <canvas
         ref={canvasRef}
-        className="h-full w-full cursor-grab active:cursor-grabbing"
+        className={`h-full w-full ${cursorClass}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -411,6 +515,34 @@ export function BubbleCanvas() {
       <div className="bg-background/80 border-border/50 fixed left-3 top-16 z-50 flex flex-col items-center gap-1 rounded-lg border p-1 shadow-lg backdrop-blur-xl">
         <Tooltip>
           <TooltipTrigger asChild>
+            <Button
+              variant={!handMode ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() => setHandMode(false)}
+            >
+              <MousePointer2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Select</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={handMode || isPanning ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() => setHandMode(true)}
+            >
+              <Hand className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Pan</TooltipContent>
+        </Tooltip>
+
+        <Separator className="w-5" />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" onClick={addZone}>
               <Circle className="h-4 w-4" />
             </Button>
@@ -418,49 +550,44 @@ export function BubbleCanvas() {
           <TooltipContent side="right">Add Zone</TooltipContent>
         </Tooltip>
 
-        {selected && (
-          <>
-            <Separator className="w-5" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <label className="hover:bg-accent flex h-7 w-7 cursor-pointer items-center justify-center rounded-md">
-                  <input
-                    type="color"
-                    value={selected.color}
-                    onChange={(e) => updateSelected({ color: e.target.value })}
-                    className="sr-only"
-                  />
-                  <div
-                    className="border-border h-4 w-4 rounded-full border"
-                    style={{ backgroundColor: selected.color }}
-                  />
-                </label>
-              </TooltipTrigger>
-              <TooltipContent side="right">Color</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={deleteSelected}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Delete Zone</TooltipContent>
-            </Tooltip>
-            <Separator className="w-5" />
-            <input
-              type="text"
-              value={selected.label}
-              onChange={(e) => updateSelected({ label: e.target.value })}
-              className="bg-transparent text-foreground focus:ring-ring w-20 rounded px-1 py-0.5 text-center text-xs outline-none focus:ring-1"
-              placeholder="Label"
-            />
-          </>
-        )}
       </div>
+
+      {/* Properties panel */}
+      {selected && (
+        <div className="bg-background/80 border-border/50 fixed left-14 top-16 z-50 flex flex-col gap-1.5 rounded-lg border p-2 shadow-lg backdrop-blur-xl">
+          <input
+            type="text"
+            value={selected.label}
+            onChange={(e) => updateSelected({ label: e.target.value })}
+            className="border-border bg-transparent text-foreground focus:ring-ring w-32 rounded border px-2 py-1 text-xs outline-none focus:ring-1"
+            placeholder="Label"
+          />
+          <div className="flex items-center gap-2">
+            <label className="hover:bg-accent flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-xs">
+              <input
+                type="color"
+                value={selected.color}
+                onChange={(e) => updateSelected({ color: e.target.value })}
+                className="sr-only"
+              />
+              <div
+                className="border-border h-3.5 w-3.5 rounded-full border"
+                style={{ backgroundColor: selected.color }}
+              />
+              <span className="text-muted-foreground">Color</span>
+            </label>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="justify-start gap-2 text-xs"
+            onClick={deleteSelected}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

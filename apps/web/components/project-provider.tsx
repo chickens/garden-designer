@@ -2,12 +2,23 @@
 
 import * as React from "react"
 import { ProjectContext, type ProjectState } from "@/lib/project-store"
-import type { GardenProject, ViewMode, DesignPhase, PhaseData } from "@/lib/types"
-import { createDefaultProject } from "@/lib/types"
+import type {
+  GardenProject,
+  ViewMode,
+  DesignPhase,
+  PhaseData,
+  ProjectManifest,
+  CameraState,
+} from "@/lib/types"
+import { createDefaultProject, createDefaultManifest } from "@/lib/types"
 import {
   openProjectDirectory,
-  saveProjectToDirectory,
-  saveProjectNewDirectory,
+  saveDesignVersion,
+  saveManifest,
+  loadDesignVersion,
+  initProjectDirectory,
+  duplicateVersion as fsDuplicateVersion,
+  deleteVersion as fsDeleteVersion,
   saveAsset,
   loadAssetAsObjectUrl,
   saveToLocalStorage,
@@ -19,6 +30,7 @@ const MAX_HISTORY = 100
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<ProjectState>({
     project: null,
+    manifest: null,
     viewMode: "2d",
     isDirty: false,
     canUndo: false,
@@ -27,7 +39,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   })
   const dirHandleRef = React.useRef<FileSystemDirectoryHandle | null>(null)
 
-  // History stacks
   const undoStack = React.useRef<GardenProject[]>([])
   const redoStack = React.useRef<GardenProject[]>([])
 
@@ -46,9 +57,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   )
 
   const setProjectWithHistory = React.useCallback(
-    (
-      updater: (prev: ProjectState) => ProjectState
-    ) => {
+    (updater: (prev: ProjectState) => ProjectState) => {
       setState((s) => {
         const next = updater(s)
         if (s.project && next.isDirty) {
@@ -60,11 +69,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [pushUndo, syncHistoryFlags]
   )
 
+  const resetHistory = React.useCallback(() => {
+    undoStack.current = []
+    redoStack.current = []
+  }, [])
+
   // Auto-load from localStorage on mount
   React.useEffect(() => {
     const saved = loadFromLocalStorage()
     if (saved) {
-      setState((s) => syncHistoryFlags({ ...s, project: saved }))
+      setState((s) =>
+        syncHistoryFlags({
+          ...s,
+          project: saved,
+          viewMode: saved.viewMode ?? "2d",
+          manifest: s.manifest ?? createDefaultManifest(saved.name),
+        })
+      )
     }
   }, [syncHistoryFlags])
 
@@ -78,21 +99,26 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const newProject = React.useCallback(
     async (name: string, widthMeters: number, depthMeters: number) => {
       const project = createDefaultProject(name, widthMeters, depthMeters)
+      const defaultManifest = createDefaultManifest(name)
 
-      // Prompt for project folder immediately
       let dirHandle: FileSystemDirectoryHandle | null = null
+      let manifest: ProjectManifest = defaultManifest
       try {
-        dirHandle = await saveProjectNewDirectory(project)
+        const result = await initProjectDirectory(project)
+        if (result) {
+          dirHandle = result.dirHandle
+          manifest = result.manifest
+        }
       } catch {
-        // User cancelled — still create the project in memory
+        // User cancelled — use in-memory manifest
       }
 
       dirHandleRef.current = dirHandle
-      undoStack.current = []
-      redoStack.current = []
+      resetHistory()
       setState(
         syncHistoryFlags({
           project,
+          manifest,
           viewMode: "2d",
           isDirty: false,
           canUndo: false,
@@ -101,19 +127,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         })
       )
     },
-    [syncHistoryFlags]
+    [syncHistoryFlags, resetHistory]
   )
 
   const openProject = React.useCallback(async () => {
     try {
-      const { project, dirHandle } = await openProjectDirectory()
+      const { project, manifest, dirHandle } = await openProjectDirectory()
       dirHandleRef.current = dirHandle
-      undoStack.current = []
-      redoStack.current = []
+      resetHistory()
       setState(
         syncHistoryFlags({
           project,
-          viewMode: "2d",
+          manifest,
+          viewMode: project.viewMode ?? "2d",
           isDirty: false,
           canUndo: false,
           canRedo: false,
@@ -121,38 +147,52 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         })
       )
     } catch {
-      // User cancelled or error
+      // User cancelled
     }
-  }, [syncHistoryFlags])
+  }, [syncHistoryFlags, resetHistory])
 
   const save = React.useCallback(async () => {
     if (!state.project) return
     try {
-      if (dirHandleRef.current) {
-        await saveProjectToDirectory(state.project, dirHandleRef.current)
+      if (dirHandleRef.current && state.manifest) {
+        await saveDesignVersion(
+          dirHandleRef.current,
+          state.manifest,
+          state.project
+        )
         setState((s) => ({ ...s, isDirty: false }))
       } else {
-        const dirHandle = await saveProjectNewDirectory(state.project)
-        if (dirHandle) {
-          dirHandleRef.current = dirHandle
-          setState((s) => ({ ...s, isDirty: false, hasDirHandle: true }))
+        const result = await initProjectDirectory(state.project)
+        if (result) {
+          dirHandleRef.current = result.dirHandle
+          setState((s) => ({
+            ...s,
+            manifest: result.manifest,
+            isDirty: false,
+            hasDirHandle: true,
+          }))
         }
       }
     } catch {
-      // User cancelled or error
+      // User cancelled
     }
-  }, [state.project])
+  }, [state.project, state.manifest])
 
   const saveAs = React.useCallback(async () => {
     if (!state.project) return
     try {
-      const dirHandle = await saveProjectNewDirectory(state.project)
-      if (dirHandle) {
-        dirHandleRef.current = dirHandle
-        setState((s) => ({ ...s, isDirty: false, hasDirHandle: true }))
+      const result = await initProjectDirectory(state.project)
+      if (result) {
+        dirHandleRef.current = result.dirHandle
+        setState((s) => ({
+          ...s,
+          manifest: result.manifest,
+          isDirty: false,
+          hasDirHandle: true,
+        }))
       }
     } catch {
-      // User cancelled or error
+      // User cancelled
     }
   }, [state.project])
 
@@ -160,27 +200,40 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     (updates: Partial<GardenProject>) => {
       setProjectWithHistory((s) => {
         if (!s.project) return s
-        return {
-          ...s,
-          project: { ...s.project, ...updates },
-          isDirty: true,
-        }
+        return { ...s, project: { ...s.project, ...updates }, isDirty: true }
       })
     },
     [setProjectWithHistory]
   )
 
   const setViewMode = React.useCallback((mode: ViewMode) => {
-    setState((s) => ({ ...s, viewMode: mode }))
+    setState((s) => {
+      if (!s.project) return { ...s, viewMode: mode }
+      return {
+        ...s,
+        viewMode: mode,
+        project: { ...s.project, viewMode: mode },
+        isDirty: true,
+      }
+    })
+  }, [])
+
+  // Save camera without marking dirty or pushing undo — it's just viewport state
+  const cameraTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setCamera = React.useCallback((camera: CameraState) => {
+    if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current)
+    cameraTimerRef.current = setTimeout(() => {
+      setState((s) => {
+        if (!s.project) return s
+        return { ...s, project: { ...s.project, camera } }
+      })
+    }, 300) // debounce 300ms
   }, [])
 
   const setActivePhase = React.useCallback((phase: DesignPhase) => {
     setState((s) => {
       if (!s.project) return s
-      return {
-        ...s,
-        project: { ...s.project, activePhase: phase },
-      }
+      return { ...s, project: { ...s.project, activePhase: phase } }
     })
   }, [])
 
@@ -210,11 +263,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       redoStack.current = [...redoStack.current, s.project]
       const prev = undoStack.current[undoStack.current.length - 1]!
       undoStack.current = undoStack.current.slice(0, -1)
-      return syncHistoryFlags({
-        ...s,
-        project: prev,
-        isDirty: true,
-      })
+      return syncHistoryFlags({ ...s, project: prev, isDirty: true })
     })
   }, [syncHistoryFlags])
 
@@ -224,22 +273,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       undoStack.current = [...undoStack.current, s.project]
       const next = redoStack.current[redoStack.current.length - 1]!
       redoStack.current = redoStack.current.slice(0, -1)
-      return syncHistoryFlags({
-        ...s,
-        project: next,
-        isDirty: true,
-      })
+      return syncHistoryFlags({ ...s, project: next, isDirty: true })
     })
   }, [syncHistoryFlags])
 
   const importAsset = React.useCallback(
     async (file: File, filename: string): Promise<string | null> => {
-      if (!dirHandleRef.current) {
-        // No directory — prompt user to save project first, or return data URL fallback
-        return null
-      }
-      const assetPath = await saveAsset(dirHandleRef.current, file, filename)
-      return assetPath
+      if (!dirHandleRef.current) return null
+      return saveAsset(dirHandleRef.current, file, filename)
     },
     []
   )
@@ -256,16 +297,164 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
-  // Global keyboard shortcuts: Ctrl+Z / Ctrl+Shift+Z
+  // --- Version management ---
+
+  const switchVersion = React.useCallback(
+    async (versionId: string) => {
+      if (!dirHandleRef.current || !state.manifest) return
+
+      // Save current version first if dirty
+      if (state.isDirty && state.project) {
+        await saveDesignVersion(
+          dirHandleRef.current,
+          state.manifest,
+          state.project
+        )
+      }
+
+      const versionInfo = state.manifest.versions.find(
+        (v) => v.id === versionId
+      )
+      if (!versionInfo) return
+
+      const project = await loadDesignVersion(
+        dirHandleRef.current,
+        versionInfo
+      )
+      const updatedManifest = {
+        ...state.manifest,
+        activeVersionId: versionId,
+      }
+      await saveManifest(dirHandleRef.current, updatedManifest)
+
+      resetHistory()
+      setState(
+        syncHistoryFlags({
+          project,
+          manifest: updatedManifest,
+          viewMode: state.viewMode,
+          isDirty: false,
+          canUndo: false,
+          canRedo: false,
+          hasDirHandle: true,
+        })
+      )
+    },
+    [state.manifest, state.isDirty, state.project, state.viewMode, resetHistory, syncHistoryFlags]
+  )
+
+  const duplicateVersion = React.useCallback(
+    async (newName: string) => {
+      if (!dirHandleRef.current || !state.manifest) return
+
+      // Save current first
+      if (state.isDirty && state.project) {
+        await saveDesignVersion(
+          dirHandleRef.current,
+          state.manifest,
+          state.project
+        )
+      }
+
+      const { manifest: updatedManifest, versionInfo } =
+        await fsDuplicateVersion(
+          dirHandleRef.current,
+          state.manifest,
+          state.manifest.activeVersionId,
+          newName
+        )
+
+      // Switch to the new version
+      const newManifest = {
+        ...updatedManifest,
+        activeVersionId: versionInfo.id,
+      }
+      await saveManifest(dirHandleRef.current, newManifest)
+
+      const project = await loadDesignVersion(
+        dirHandleRef.current,
+        versionInfo
+      )
+
+      resetHistory()
+      setState(
+        syncHistoryFlags({
+          project,
+          manifest: newManifest,
+          viewMode: state.viewMode,
+          isDirty: false,
+          canUndo: false,
+          canRedo: false,
+          hasDirHandle: true,
+        })
+      )
+    },
+    [state.manifest, state.isDirty, state.project, state.viewMode, resetHistory, syncHistoryFlags]
+  )
+
+  const deleteVersionAction = React.useCallback(
+    async (versionId: string) => {
+      if (!dirHandleRef.current || !state.manifest) return
+      if (state.manifest.versions.length <= 1) return
+
+      const updatedManifest = await fsDeleteVersion(
+        dirHandleRef.current,
+        state.manifest,
+        versionId
+      )
+
+      // If we deleted the active version, load the new active one
+      if (versionId === state.manifest.activeVersionId) {
+        const newActive = updatedManifest.versions.find(
+          (v) => v.id === updatedManifest.activeVersionId
+        )!
+        const project = await loadDesignVersion(
+          dirHandleRef.current,
+          newActive
+        )
+        resetHistory()
+        setState(
+          syncHistoryFlags({
+            project,
+            manifest: updatedManifest,
+            viewMode: state.viewMode,
+            isDirty: false,
+            canUndo: false,
+            canRedo: false,
+            hasDirHandle: true,
+          })
+        )
+      } else {
+        setState((s) => ({ ...s, manifest: updatedManifest }))
+      }
+    },
+    [state.manifest, state.viewMode, resetHistory, syncHistoryFlags]
+  )
+
+  const renameVersion = React.useCallback(
+    (versionId: string, newName: string) => {
+      if (!state.manifest) return
+      const updatedManifest: ProjectManifest = {
+        ...state.manifest,
+        versions: state.manifest.versions.map((v) =>
+          v.id === versionId ? { ...v, name: newName } : v
+        ),
+      }
+      setState((s) => ({ ...s, manifest: updatedManifest }))
+      if (dirHandleRef.current) {
+        saveManifest(dirHandleRef.current, updatedManifest)
+      }
+    },
+    [state.manifest]
+  )
+
+  // Keyboard: Ctrl+Z / Ctrl+Shift+Z
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return
       e.preventDefault()
-      if (e.shiftKey) {
-        redo()
-      } else {
-        undo()
-      }
+      if (e.shiftKey) redo()
+      else undo()
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
@@ -280,12 +469,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       saveAs,
       updateProject,
       setViewMode,
+      setCamera,
       setActivePhase,
       updatePhaseData,
       undo,
       redo,
       importAsset,
       loadAssetUrl,
+      switchVersion,
+      duplicateVersion,
+      deleteVersion: deleteVersionAction,
+      renameVersion,
     }),
     [
       state,
@@ -295,12 +489,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       saveAs,
       updateProject,
       setViewMode,
+      setCamera,
       setActivePhase,
       updatePhaseData,
       undo,
       redo,
       importAsset,
       loadAssetUrl,
+      switchVersion,
+      duplicateVersion,
+      deleteVersionAction,
+      renameVersion,
     ]
   )
 

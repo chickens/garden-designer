@@ -1,0 +1,15 @@
+{
+  "id": "japanese-maple",
+  "commonName": "Japanese Maple",
+  "botanicalName": "Acer palmatum",
+  "category": "tree",
+  "height": { "min": 200, "max": 800 },
+  "spread": { "min": 200, "max": 600 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["loam", "sand"],
+  "season": ["spring", "summer", "autumn"],
+  "evergreen": false,
+  "color": "#C41E3A",
+  "notes": "Elegant deciduous tree with deeply lobed palmate leaves. Spectacular autumn colour ranging from gold to deep crimson. Best in sheltered positions with dappled shade and moist, well-drained acid soil."
+}

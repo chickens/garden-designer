@@ -1,0 +1,15 @@
+{
+  "id": "jasmine",
+  "commonName": "Jasmine",
+  "botanicalName": "Jasminum officinale",
+  "category": "climber",
+  "height": { "min": 400, "max": 1200 },
+  "spread": { "min": 200, "max": 500 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["sand", "loam"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#FFFDE7",
+  "notes": "Vigorous twining climber bearing clusters of intensely fragrant, star-shaped white flowers throughout summer and into early autumn. Semi-evergreen in mild areas. Best grown against a warm, sheltered wall or over a pergola."
+}

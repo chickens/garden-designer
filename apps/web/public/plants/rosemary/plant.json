@@ -1,0 +1,15 @@
+{
+  "id": "rosemary",
+  "commonName": "Rosemary",
+  "botanicalName": "Salvia rosmarinus",
+  "category": "shrub",
+  "height": { "min": 60, "max": 150 },
+  "spread": { "min": 60, "max": 120 },
+  "sun": "full",
+  "water": "low",
+  "soil": ["sand", "loam", "chalk"],
+  "season": ["spring", "summer"],
+  "evergreen": true,
+  "color": "#6A8EC1",
+  "notes": "Aromatic evergreen shrub with needle-like leaves and small blue flowers. Drought-tolerant once established. Widely used as a culinary herb and in Mediterranean-style planting schemes."
+}

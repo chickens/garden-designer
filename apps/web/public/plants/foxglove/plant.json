@@ -1,0 +1,15 @@
+{
+  "id": "foxglove",
+  "commonName": "Foxglove",
+  "botanicalName": "Digitalis purpurea",
+  "category": "perennial",
+  "height": { "min": 100, "max": 180 },
+  "spread": { "min": 30, "max": 50 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["clay", "sand", "loam"],
+  "season": ["summer"],
+  "evergreen": false,
+  "color": "#9B59B6",
+  "notes": "Tall biennial or short-lived perennial bearing dramatic spires of tubular purple, pink, or white flowers. Self-seeds freely in suitable conditions. All parts are highly toxic if ingested. Excellent for cottage gardens and woodland edges."
+}

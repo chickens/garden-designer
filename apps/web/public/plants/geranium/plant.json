@@ -1,0 +1,15 @@
+{
+  "id": "geranium",
+  "commonName": "Geranium",
+  "botanicalName": "Geranium 'Rozanne'",
+  "category": "perennial",
+  "height": { "min": 30, "max": 50 },
+  "spread": { "min": 45, "max": 75 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["clay", "sand", "loam", "chalk"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#5B7FBF",
+  "notes": "Outstanding hardy geranium producing masses of large violet-blue saucer-shaped flowers with white centres from early summer until the first frosts. Extremely versatile and trouble-free. Tolerates a wide range of conditions."
+}

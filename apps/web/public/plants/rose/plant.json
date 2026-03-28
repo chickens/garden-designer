@@ -1,0 +1,15 @@
+{
+  "id": "rose",
+  "commonName": "Rose",
+  "botanicalName": "Rosa (garden hybrid)",
+  "category": "shrub",
+  "height": { "min": 60, "max": 180 },
+  "spread": { "min": 50, "max": 150 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["clay", "loam"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#DC143C",
+  "notes": "Classic garden shrub producing abundant fragrant blooms from early summer through autumn. Requires regular feeding, mulching, and annual pruning. Thrives in rich, moisture-retentive but well-drained soil."
+}

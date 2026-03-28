@@ -1,0 +1,15 @@
+{
+  "id": "sedum",
+  "commonName": "Sedum",
+  "botanicalName": "Sedum spectabile",
+  "category": "perennial",
+  "height": { "min": 30, "max": 60 },
+  "spread": { "min": 30, "max": 60 },
+  "sun": "full",
+  "water": "low",
+  "soil": ["sand", "loam", "chalk"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#DB7093",
+  "notes": "Fleshy-leaved succulent perennial producing flat heads of tiny star-shaped pink flowers in late summer and autumn. Superb for late-season pollinators, especially butterflies. Leave seed heads standing for winter interest. Very drought-tolerant."
+}

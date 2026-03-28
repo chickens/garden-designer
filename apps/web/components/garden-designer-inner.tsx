@@ -7,6 +7,8 @@ import { ViewToggle } from "./view-toggle"
 import { PhaseNav } from "./phase-nav"
 import { PhaseToolbar } from "./phase-toolbar"
 import { ProjectNameBadge } from "./project-name-badge"
+import { VersionSwitcher } from "./version-switcher"
+import { OverlayControls } from "./overlay-controls"
 import { PhaseCanvas } from "./phase-canvas"
 import { Scene3DDynamic } from "./garden-designer"
 
@@ -22,8 +24,10 @@ export function GardenDesignerInner() {
       <Toolbar />
       <PhaseNav />
       <ViewToggle />
+      <OverlayControls />
       <PhaseToolbar />
       <ProjectNameBadge />
+      <VersionSwitcher />
       <div className="h-full w-full">
         {viewMode === "3d" ? (
           <Scene3DDynamic />

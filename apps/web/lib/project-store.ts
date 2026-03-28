@@ -1,15 +1,24 @@
 "use client"
 
 import { createContext, useContext } from "react"
-import type { GardenProject, ViewMode, DesignPhase, PhaseData } from "./types"
+import type {
+  GardenProject,
+  ViewMode,
+  DesignPhase,
+  PhaseData,
+  ProjectManifest,
+  DesignVersionInfo,
+  CameraState,
+} from "./types"
 
 export interface ProjectState {
   project: GardenProject | null
+  manifest: ProjectManifest | null
   viewMode: ViewMode
   isDirty: boolean
   canUndo: boolean
   canRedo: boolean
-  hasDirHandle: boolean // whether we have a directory handle for asset operations
+  hasDirHandle: boolean
 }
 
 export interface ProjectActions {
@@ -28,6 +37,12 @@ export interface ProjectActions {
   redo: () => void
   importAsset: (file: File, filename: string) => Promise<string | null>
   loadAssetUrl: (assetPath: string) => Promise<string | null>
+  setCamera: (camera: CameraState) => void
+  // Version management
+  switchVersion: (versionId: string) => Promise<void>
+  duplicateVersion: (newName: string) => Promise<void>
+  deleteVersion: (versionId: string) => Promise<void>
+  renameVersion: (versionId: string, newName: string) => void
 }
 
 export type ProjectContextValue = ProjectState & ProjectActions

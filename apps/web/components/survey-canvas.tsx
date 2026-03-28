@@ -26,8 +26,14 @@ import {
   ImagePlus,
   ImageOff,
   Move,
+  MousePointer2,
+  Hand,
 } from "lucide-react"
 import { useProject } from "@/lib/project-store"
+import { useOverlays } from "./overlay-controls"
+import { drawPhaseOverlay } from "@/lib/draw-overlays"
+import { copyToClipboard, pasteFromClipboard, offsetItem } from "@/lib/clipboard"
+import { useCanvasCamera } from "@/lib/use-canvas-camera"
 import { useTheme } from "next-themes"
 import type {
   SurveyElement,
@@ -43,7 +49,11 @@ interface Transform {
   scale: number
 }
 
-type DragMode = "none" | "pan" | "move" | "resize" | "place" | "image-move" | "image-resize"
+type DragMode = "none" | "pan" | "move" | "resize" | "place" | "image-move" | "image-resize" | "marquee"
+
+interface MarqueeRect {
+  x1: number; y1: number; x2: number; y2: number
+}
 
 const ELEMENT_ICONS: Record<SurveyElementType, typeof Home> = {
   house: Home,
@@ -89,20 +99,25 @@ const UTILITY_TYPES: SurveyElementType[] = ["drain", "tap", "manhole"]
 const NATURE_TYPES: SurveyElementType[] = ["tree"]
 
 export function SurveyCanvas() {
-  const { project, updatePhaseData, importAsset, loadAssetUrl, hasDirHandle, save } =
+  const { project, updatePhaseData, importAsset, loadAssetUrl, hasDirHandle, save, setCamera } =
     useProject()
   const { resolvedTheme } = useTheme()
+  const overlays = useOverlays()
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const transformRef = React.useRef<Transform>({ offsetX: 0, offsetY: 0, scale: 1 })
   const rafRef = React.useRef<number>(0)
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const selectedId = selectedIds[selectedIds.length - 1] ?? null
   const [placingType, setPlacingType] = React.useState<SurveyElementType | null>(null)
   const [adjustingImage, setAdjustingImage] = React.useState(false)
+  const [handMode, setHandMode] = React.useState(false)
+  const [isPanning, setIsPanning] = React.useState(false)
   const dragMode = React.useRef<DragMode>("none")
   const lastMouse = React.useRef({ x: 0, y: 0 })
   const resizeHandle = React.useRef<"se" | null>(null)
+  const marqueeRef = React.useRef<MarqueeRect | null>(null)
 
   const surveyData: SurveyData = project?.phases?.survey ?? { elements: [], compassAngle: 0 }
   const elements = surveyData.elements
@@ -328,6 +343,14 @@ export function SurveyCanvas() {
       ctx.stroke()
     }
 
+    // Phase overlays
+    if (project) {
+      const dc = { ctx, toScreenX, toScreenY, scale, isDark }
+      for (const phase of overlays) {
+        drawPhaseOverlay(dc, project, phase, "survey")
+      }
+    }
+
     // Garden border
     ctx.strokeStyle = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"
     ctx.lineWidth = 2
@@ -377,7 +400,7 @@ export function SurveyCanvas() {
       const sd = el.depth * scale
 
       const colors = ELEMENT_COLORS[el.type]
-      const isSelected = el.id === selectedId
+      const isSelected = selectedIds.includes(el.id)
 
       if (el.type === "tree") {
         const cx = sx + sw / 2
@@ -487,28 +510,25 @@ export function SurveyCanvas() {
     ctx.fillText("N", 0, -compassR - 8)
 
     ctx.restore()
-  }, [project, elements, selectedId, compassAngle, bgImage, adjustingImage, resolvedTheme])
 
-  // Center garden on mount
-  React.useEffect(() => {
-    const container = containerRef.current
-    if (!container || !project) return
-
-    const rect = container.getBoundingClientRect()
-    const { width: gardenW, depth: gardenD } = project.dimensions
-    const padding = 80
-    const scaleX = (rect.width - padding * 2) / gardenW
-    const scaleY = (rect.height - padding * 2) / gardenD
-    const scale = Math.min(scaleX, scaleY)
-
-    transformRef.current = {
-      scale,
-      offsetX: (rect.width - gardenW * scale) / 2,
-      offsetY: (rect.height - gardenD * scale) / 2,
+    // Marquee selection rectangle
+    const mq = marqueeRef.current
+    if (mq) {
+      const mx = toScreenX(Math.min(mq.x1, mq.x2))
+      const my = toScreenY(Math.min(mq.y1, mq.y2))
+      const mw = Math.abs(mq.x2 - mq.x1) * scale
+      const mh = Math.abs(mq.y2 - mq.y1) * scale
+      ctx.setLineDash([4, 4])
+      ctx.strokeStyle = isDark ? "rgba(96,165,250,0.8)" : "rgba(59,130,246,0.8)"
+      ctx.lineWidth = 1
+      ctx.strokeRect(mx, my, mw, mh)
+      ctx.fillStyle = isDark ? "rgba(96,165,250,0.1)" : "rgba(59,130,246,0.08)"
+      ctx.fillRect(mx, my, mw, mh)
+      ctx.setLineDash([])
     }
+  }, [project, elements, selectedIds, compassAngle, bgImage, adjustingImage, overlays, resolvedTheme])
 
-    draw()
-  }, [project, draw])
+  const { saveCamera } = useCanvasCamera(containerRef, transformRef, project, setCamera, draw)
 
   // Resize observer
   React.useEffect(() => {
@@ -540,15 +560,25 @@ export function SurveyCanvas() {
 
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(draw)
+      saveCamera()
     }
 
     canvas.addEventListener("wheel", onWheel, { passive: false })
     return () => canvas.removeEventListener("wheel", onWheel)
-  }, [draw])
+  }, [draw, saveCamera])
 
   // Pointer handlers
   function onPointerDown(e: React.PointerEvent) {
+    // Middle-click always pans
+    if (e.button === 1) {
+      dragMode.current = "pan"
+      setIsPanning(true)
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      return
+    }
     if (e.button !== 0) return
+
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
 
@@ -558,6 +588,12 @@ export function SurveyCanvas() {
 
     lastMouse.current = { x: e.clientX, y: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+
+    // Hand mode — left-click pans
+    if (handMode && !placingType && !adjustingImage) {
+      dragMode.current = "pan"
+      return
+    }
 
     // Placing mode
     if (placingType) {
@@ -572,7 +608,7 @@ export function SurveyCanvas() {
         label: "",
       }
       setElements([...elements, newEl])
-      setSelectedId(newEl.id)
+      setSelectedIds([newEl.id])
       setPlacingType(null)
       dragMode.current = "none"
       return
@@ -601,13 +637,17 @@ export function SurveyCanvas() {
     // Element hit
     const hit = hitTest(g.x, g.y)
     if (hit) {
-      setSelectedId(hit.id)
+      if (!selectedIds.includes(hit.id)) {
+        setSelectedIds([hit.id])
+      }
       dragMode.current = "move"
       return
     }
 
-    setSelectedId(null)
-    dragMode.current = "pan"
+    setSelectedIds([])
+    const g2 = screenToGarden(sx, sy)
+    marqueeRef.current = { x1: g2.x, y1: g2.y, x2: g2.x, y2: g2.y }
+    dragMode.current = handMode ? "pan" : "marquee"
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -620,6 +660,31 @@ export function SurveyCanvas() {
     if (dragMode.current === "pan") {
       transformRef.current.offsetX += dx
       transformRef.current.offsetY += dy
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(draw)
+      saveCamera()
+      return
+    }
+
+    if (dragMode.current === "marquee") {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const sx2 = e.clientX - rect.left
+      const sy2 = e.clientY - rect.top
+      const g2 = screenToGarden(sx2, sy2)
+      if (marqueeRef.current) {
+        marqueeRef.current.x2 = g2.x
+        marqueeRef.current.y2 = g2.y
+        const mq = marqueeRef.current
+        const minX = Math.min(mq.x1, mq.x2)
+        const maxX = Math.max(mq.x1, mq.x2)
+        const minY = Math.min(mq.y1, mq.y2)
+        const maxY = Math.max(mq.y1, mq.y2)
+        const hits = elements.filter(
+          (el) => el.x >= minX && el.y >= minY && el.x + el.width <= maxX && el.y + el.depth <= maxY
+        )
+        setSelectedIds(hits.map((h) => h.id))
+      }
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(draw)
       return
@@ -648,11 +713,12 @@ export function SurveyCanvas() {
       return
     }
 
-    if (dragMode.current === "move" && selectedId) {
+    if (dragMode.current === "move" && selectedIds.length > 0) {
       const scale = transformRef.current.scale
+      const idSet = new Set(selectedIds)
       setElements(
         elements.map((el) =>
-          el.id === selectedId
+          idSet.has(el.id)
             ? { ...el, x: el.x + dx / scale, y: el.y + dy / scale }
             : el
         )
@@ -676,40 +742,82 @@ export function SurveyCanvas() {
   }
 
   function onPointerUp() {
+    if (dragMode.current === "marquee" && marqueeRef.current) {
+      const mq = marqueeRef.current
+      const minX = Math.min(mq.x1, mq.x2)
+      const maxX = Math.max(mq.x1, mq.x2)
+      const minY = Math.min(mq.y1, mq.y2)
+      const maxY = Math.max(mq.y1, mq.y2)
+      const hits = elements.filter(
+        (el) =>
+          el.x >= minX && el.y >= minY &&
+          el.x + el.width <= maxX && el.y + el.depth <= maxY
+      )
+      if (hits.length > 0) {
+        setSelectedIds(hits.map((h) => h.id))
+      }
+      marqueeRef.current = null
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(draw)
+    }
     dragMode.current = "none"
     resizeHandle.current = null
+    setIsPanning(false)
   }
 
-  // Keyboard: delete / escape
+  // Keyboard: delete / escape / copy / paste
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setPlacingType(null)
-        setSelectedId(null)
+        setSelectedIds([])
         setAdjustingImage(false)
+        setHandMode(false)
         return
       }
-      if (!selectedId) return
-      if (e.key === "Delete" || e.key === "Backspace") {
-        const target = e.target as HTMLElement
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedIds.length > 0) {
+        const idSet = new Set(selectedIds)
+        copyToClipboard("survey", elements.filter((el) => idSet.has(el.id)))
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
         e.preventDefault()
-        setElements(elements.filter((el) => el.id !== selectedId))
-        setSelectedId(null)
+        pasteFromClipboard().then((payload) => {
+          if (!payload || payload.phase !== "survey") return
+          const pasted = (payload.items as typeof elements).map((el) => ({
+            ...offsetItem(el),
+            id: crypto.randomUUID(),
+          }))
+          setElements([...elements, ...pasted])
+          setSelectedIds(pasted.map((p) => p.id))
+        })
+        return
+      }
+
+      if (selectedIds.length === 0) return
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        const idSet = new Set(selectedIds)
+        setElements(elements.filter((el) => !idSet.has(el.id)))
+        setSelectedIds([])
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedId, elements, setElements])
+  }, [selectedIds, elements, setElements])
 
   // --- Toolbar actions ---
   const selected = elements.find((el) => el.id === selectedId)
 
   const deleteSelected = React.useCallback(() => {
-    if (!selectedId) return
-    setElements(elements.filter((el) => el.id !== selectedId))
-    setSelectedId(null)
-  }, [selectedId, elements, setElements])
+    if (selectedIds.length === 0) return
+    const idSet = new Set(selectedIds)
+    setElements(elements.filter((el) => !idSet.has(el.id)))
+    setSelectedIds([])
+  }, [selectedIds, elements, setElements])
 
   const rotateCompass = React.useCallback(
     (delta: number) => {
@@ -769,9 +877,11 @@ export function SurveyCanvas() {
 
   const cursorClass = placingType
     ? "cursor-crosshair"
-    : adjustingImage
-      ? "cursor-move"
-      : "cursor-grab active:cursor-grabbing"
+    : handMode
+      ? "cursor-grab active:cursor-grabbing"
+      : adjustingImage
+        ? "cursor-move"
+        : "cursor-default"
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
@@ -786,6 +896,36 @@ export function SurveyCanvas() {
 
       {/* Survey toolbar */}
       <div className="bg-background/80 border-border/50 fixed left-3 top-16 z-50 flex flex-col items-center gap-1 rounded-lg border p-1 shadow-lg backdrop-blur-xl">
+        {/* Select tool */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={!placingType && !adjustingImage && !handMode ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() => { setPlacingType(null); setAdjustingImage(false); setHandMode(false) }}
+            >
+              <MousePointer2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Select</TooltipContent>
+        </Tooltip>
+
+        {/* Hand (pan) tool */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={handMode || isPanning ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() => { setHandMode(true); setPlacingType(null); setAdjustingImage(false) }}
+            >
+              <Hand className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Pan</TooltipContent>
+        </Tooltip>
+
+        <Separator className="w-5" />
+
         {/* Image import */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -931,34 +1071,35 @@ export function SurveyCanvas() {
           <TooltipContent side="right">Rotate North +15°</TooltipContent>
         </Tooltip>
 
-        {/* Selection tools */}
-        {selected && (
-          <>
-            <Separator className="w-5" />
-            <input
-              type="text"
-              value={selected.label}
-              onChange={(e) =>
-                setElements(
-                  elements.map((el) =>
-                    el.id === selectedId ? { ...el, label: e.target.value } : el
-                  )
-                )
-              }
-              className="bg-transparent text-foreground focus:ring-ring w-20 rounded px-1 py-0.5 text-center text-xs outline-none focus:ring-1"
-              placeholder={SURVEY_ELEMENT_LABELS[selected.type]}
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" onClick={deleteSelected}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Delete</TooltipContent>
-            </Tooltip>
-          </>
-        )}
       </div>
+
+      {/* Properties panel */}
+      {selected && (
+        <div className="bg-background/80 border-border/50 fixed left-14 top-16 z-50 flex flex-col gap-1.5 rounded-lg border p-2 shadow-lg backdrop-blur-xl">
+          <input
+            type="text"
+            value={selected.label}
+            onChange={(e) =>
+              setElements(
+                elements.map((el) =>
+                  el.id === selectedId ? { ...el, label: e.target.value } : el
+                )
+              )
+            }
+            className="border-border bg-transparent text-foreground focus:ring-ring w-32 rounded border px-2 py-1 text-xs outline-none focus:ring-1"
+            placeholder={SURVEY_ELEMENT_LABELS[selected.type]}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="justify-start gap-2 text-xs"
+            onClick={deleteSelected}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,15 @@
+{
+  "id": "clematis",
+  "commonName": "Clematis",
+  "botanicalName": "Clematis montana",
+  "category": "climber",
+  "height": { "min": 600, "max": 1200 },
+  "spread": { "min": 300, "max": 500 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["clay", "loam", "chalk"],
+  "season": ["spring"],
+  "evergreen": false,
+  "color": "#F0C4D4",
+  "notes": "Vigorous deciduous climber smothered in small white to pale pink flowers in late spring. Fast-growing and ideal for covering walls, fences, and large pergolas. Prefers roots in shade and top growth in sun."
+}

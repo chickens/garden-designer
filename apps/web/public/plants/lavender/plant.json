@@ -1,0 +1,15 @@
+{
+  "id": "lavender",
+  "commonName": "Lavender",
+  "botanicalName": "Lavandula angustifolia",
+  "category": "shrub",
+  "height": { "min": 30, "max": 60 },
+  "spread": { "min": 30, "max": 60 },
+  "sun": "full",
+  "water": "low",
+  "soil": ["sand", "loam", "chalk"],
+  "season": ["summer"],
+  "evergreen": true,
+  "color": "#7B68AE",
+  "notes": "Fragrant Mediterranean shrub with silvery-green foliage and dense purple flower spikes. Excellent for borders, hedging, and attracting pollinators. Prefers well-drained soil and full sun."
+}

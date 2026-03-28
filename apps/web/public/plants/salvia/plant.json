@@ -1,0 +1,15 @@
+{
+  "id": "salvia",
+  "commonName": "Salvia",
+  "botanicalName": "Salvia nemorosa",
+  "category": "perennial",
+  "height": { "min": 30, "max": 60 },
+  "spread": { "min": 30, "max": 45 },
+  "sun": "full",
+  "water": "low",
+  "soil": ["sand", "loam", "chalk"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#5C4B99",
+  "notes": "Compact herbaceous perennial producing dense upright spikes of violet-blue flowers over a long season. Attractive to bees and butterflies. Deadhead regularly to encourage repeat flowering. Drought-tolerant once established."
+}

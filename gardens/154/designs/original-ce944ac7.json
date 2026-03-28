@@ -1,0 +1,303 @@
+{
+  "version": 2,
+  "name": "My Garden",
+  "dimensions": {
+    "width": 900,
+    "depth": 3000
+  },
+  "gridSize": 5,
+  "activePhase": "planting",
+  "phases": {
+    "detailed": {
+      "items": [
+        {
+          "id": "7915e7e6-3a76-4ec2-9aec-08f55744153f",
+          "type": "raised-bed",
+          "x": 590,
+          "y": 1535,
+          "width": 155,
+          "depth": 300,
+          "rotation": 0
+        }
+      ]
+    },
+    "bubble": {
+      "zones": []
+    },
+    "survey": {
+      "elements": [],
+      "compassAngle": 0,
+      "backgroundImage": {
+        "assetPath": "assets/satellite-1774641676407.png",
+        "x": 37.62808604985618,
+        "y": 4.6582641058823775,
+        "width": 859.4618887823561,
+        "height": 2996.9836847177535,
+        "opacity": 0.5
+      }
+    },
+    "concept": {
+      "shapes": [],
+      "paths": []
+    },
+    "wishlist": {
+      "categories": [
+        {
+          "id": "features",
+          "name": "Features",
+          "items": [
+            {
+              "id": "lawn",
+              "label": "Lawn",
+              "checked": false
+            },
+            {
+              "id": "patio",
+              "label": "Patio / Seating Area",
+              "checked": false
+            },
+            {
+              "id": "decking",
+              "label": "Decking",
+              "checked": false
+            },
+            {
+              "id": "dining",
+              "label": "Outdoor Dining",
+              "checked": false
+            },
+            {
+              "id": "play",
+              "label": "Play Area",
+              "checked": false
+            },
+            {
+              "id": "veg",
+              "label": "Vegetable Patch",
+              "checked": false
+            },
+            {
+              "id": "greenhouse",
+              "label": "Greenhouse",
+              "checked": false
+            },
+            {
+              "id": "shed",
+              "label": "Shed / Storage",
+              "checked": false
+            },
+            {
+              "id": "water",
+              "label": "Water Feature / Pond",
+              "checked": false
+            },
+            {
+              "id": "wildlife",
+              "label": "Wildlife Area",
+              "checked": false
+            },
+            {
+              "id": "fire",
+              "label": "Fire Pit / BBQ",
+              "checked": false
+            },
+            {
+              "id": "pergola",
+              "label": "Pergola / Arch",
+              "checked": false
+            },
+            {
+              "id": "raised-beds",
+              "label": "Raised Beds",
+              "checked": false
+            },
+            {
+              "id": "paths",
+              "label": "Paths",
+              "checked": false
+            },
+            {
+              "id": "lighting",
+              "label": "Garden Lighting",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "style",
+          "name": "Style",
+          "items": [
+            {
+              "id": "formal",
+              "label": "Formal",
+              "checked": false
+            },
+            {
+              "id": "cottage",
+              "label": "Cottage",
+              "checked": false
+            },
+            {
+              "id": "modern",
+              "label": "Modern / Contemporary",
+              "checked": false
+            },
+            {
+              "id": "japanese",
+              "label": "Japanese",
+              "checked": false
+            },
+            {
+              "id": "mediterranean",
+              "label": "Mediterranean",
+              "checked": false
+            },
+            {
+              "id": "wild",
+              "label": "Wildflower / Naturalistic",
+              "checked": false
+            },
+            {
+              "id": "tropical",
+              "label": "Tropical",
+              "checked": false
+            },
+            {
+              "id": "minimal",
+              "label": "Minimal",
+              "checked": false
+            }
+          ]
+        },
+        {
+          "id": "constraints",
+          "name": "Constraints",
+          "items": [
+            {
+              "id": "low-maintenance",
+              "label": "Low Maintenance",
+              "checked": false
+            },
+            {
+              "id": "budget",
+              "label": "Budget Conscious",
+              "checked": false
+            },
+            {
+              "id": "privacy",
+              "label": "Privacy / Screening",
+              "checked": false
+            },
+            {
+              "id": "children",
+              "label": "Child Friendly",
+              "checked": false
+            },
+            {
+              "id": "pets",
+              "label": "Pet Friendly",
+              "checked": false
+            },
+            {
+              "id": "accessible",
+              "label": "Accessible",
+              "checked": false
+            },
+            {
+              "id": "year-round",
+              "label": "Year-round Interest",
+              "checked": false
+            },
+            {
+              "id": "pollinators",
+              "label": "Pollinator Friendly",
+              "checked": false
+            },
+            {
+              "id": "drought",
+              "label": "Drought Tolerant",
+              "checked": false
+            },
+            {
+              "id": "shade",
+              "label": "Shade Tolerant",
+              "checked": false
+            }
+          ]
+        }
+      ],
+      "notes": ""
+    },
+    "planting": {
+      "placements": [
+        {
+          "id": "ff963cfc-5bf7-492f-9740-5edc5fb8339c",
+          "plantId": "lavender",
+          "x": 435.4693945213778,
+          "y": 826.1673337065745,
+          "quantity": 1
+        },
+        {
+          "id": "b139b28f-f579-4631-9c4b-bd08b0cc1b4d",
+          "plantId": "lavender",
+          "x": 494.1064484292524,
+          "y": 847.9588806347895,
+          "quantity": 1
+        },
+        {
+          "id": "6a3ce259-d7b7-4f48-acf7-fb7a4dba05d5",
+          "plantId": "lavender",
+          "x": 455.5389545804501,
+          "y": 883.1647410737686,
+          "quantity": 1
+        }
+      ],
+      "projectPlants": [
+        "lavender",
+        "ornamental-grass",
+        "hosta",
+        "box"
+      ],
+      "plantDefinitions": {
+        "lavender": {
+          "id": "lavender",
+          "commonName": "Lavender",
+          "botanicalName": "Lavandula angustifolia",
+          "category": "shrub",
+          "height": {
+            "min": 30,
+            "max": 60
+          },
+          "spread": {
+            "min": 30,
+            "max": 60
+          },
+          "sun": "full",
+          "water": "low",
+          "soil": [
+            "sand",
+            "loam",
+            "chalk"
+          ],
+          "season": [
+            "summer"
+          ],
+          "evergreen": true,
+          "color": "#7B68AE",
+          "notes": "Fragrant Mediterranean shrub with silvery-green foliage and dense purple flower spikes. Excellent for borders, hedging, and attracting pollinators. Prefers well-drained soil and full sun."
+        }
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "7915e7e6-3a76-4ec2-9aec-08f55744153f",
+      "type": "raised-bed",
+      "x": 590,
+      "y": 1535,
+      "width": 155,
+      "depth": 300,
+      "rotation": 0
+    }
+  ]
+}

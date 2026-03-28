@@ -1,31 +1,12 @@
 {
-  "version": 2,
   "name": "My Garden",
-  "dimensions": {
-    "width": 900,
-    "depth": 3000
-  },
-  "gridSize": 5,
-  "activePhase": "survey",
-  "phases": {
-    "detailed": {
-      "items": []
-    },
-    "bubble": {
-      "zones": []
-    },
-    "survey": {
-      "elements": [],
-      "compassAngle": 0,
-      "backgroundImage": {
-        "assetPath": "assets/satellite-1774641676407.png",
-        "x": 37.62808604985618,
-        "y": 4.6582641058823775,
-        "width": 859.4618887823561,
-        "height": 2996.9836847177535,
-        "opacity": 0.5
-      }
+  "activeVersionId": "ce944ac7-7c83-438c-acda-63cb46ff4bf9",
+  "versions": [
+    {
+      "id": "ce944ac7-7c83-438c-acda-63cb46ff4bf9",
+      "name": "Original",
+      "filename": "designs/original-ce944ac7.json",
+      "createdAt": "2026-03-28T13:33:01.396Z"
     }
-  },
-  "items": []
+  ]
 }

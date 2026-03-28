@@ -1,0 +1,15 @@
+{
+  "id": "ornamental-grass",
+  "commonName": "Ornamental Grass",
+  "botanicalName": "Miscanthus sinensis",
+  "category": "grass",
+  "height": { "min": 120, "max": 250 },
+  "spread": { "min": 80, "max": 120 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["clay", "sand", "loam"],
+  "season": ["summer", "autumn", "winter"],
+  "evergreen": false,
+  "color": "#C8B078",
+  "notes": "Tall deciduous grass forming impressive clumps of arching foliage topped with silky plume-like flower heads in late summer. Provides excellent winter structure. Cut back hard in early spring before new growth emerges."
+}

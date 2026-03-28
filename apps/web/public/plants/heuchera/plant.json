@@ -1,0 +1,15 @@
+{
+  "id": "heuchera",
+  "commonName": "Heuchera",
+  "botanicalName": "Heuchera 'Palace Purple'",
+  "category": "perennial",
+  "height": { "min": 30, "max": 50 },
+  "spread": { "min": 30, "max": 45 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["loam", "sand"],
+  "season": ["spring", "summer", "autumn", "winter"],
+  "evergreen": true,
+  "color": "#6B2D5B",
+  "notes": "Evergreen perennial grown primarily for its rich, deep purple-bronze foliage. Produces airy sprays of small white flowers in summer. Excellent ground cover and container plant. Provides year-round colour in borders."
+}

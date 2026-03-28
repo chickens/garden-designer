@@ -1,0 +1,15 @@
+{
+  "id": "echinacea",
+  "commonName": "Echinacea",
+  "botanicalName": "Echinacea purpurea",
+  "category": "perennial",
+  "height": { "min": 60, "max": 120 },
+  "spread": { "min": 30, "max": 45 },
+  "sun": "full",
+  "water": "low",
+  "soil": ["sand", "loam"],
+  "season": ["summer", "autumn"],
+  "evergreen": false,
+  "color": "#D4578B",
+  "notes": "Hardy prairie perennial with large daisy-like flowers featuring prominent orange-brown central cones and drooping pink-purple petals. Excellent for pollinators. Leave seed heads standing over winter for birds and architectural interest."
+}

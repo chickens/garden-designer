@@ -1,0 +1,15 @@
+{
+  "id": "agapanthus",
+  "commonName": "Agapanthus",
+  "botanicalName": "Agapanthus africanus",
+  "category": "perennial",
+  "height": { "min": 60, "max": 100 },
+  "spread": { "min": 30, "max": 50 },
+  "sun": "full",
+  "water": "medium",
+  "soil": ["sand", "loam"],
+  "season": ["summer"],
+  "evergreen": true,
+  "color": "#4169E1",
+  "notes": "Striking South African perennial producing globes of trumpet-shaped blue flowers on tall stems above strap-like foliage. Thrives in warm, sheltered positions. Excellent in containers where restricted roots encourage flowering."
+}

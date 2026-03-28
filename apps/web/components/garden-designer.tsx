@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { ProjectProvider } from "./project-provider"
+import { OverlayProvider } from "./overlay-controls"
 import { GardenDesignerInner } from "./garden-designer-inner"
 
 const Scene3DDynamic = dynamic(
@@ -16,7 +17,9 @@ export function GardenDesigner() {
   return (
     <TooltipProvider delayDuration={300}>
       <ProjectProvider>
-        <GardenDesignerInner />
+        <OverlayProvider>
+          <GardenDesignerInner />
+        </OverlayProvider>
       </ProjectProvider>
     </TooltipProvider>
   )

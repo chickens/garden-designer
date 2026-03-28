@@ -1,0 +1,15 @@
+{
+  "id": "box",
+  "commonName": "Box",
+  "botanicalName": "Buxus sempervirens",
+  "category": "shrub",
+  "height": { "min": 100, "max": 500 },
+  "spread": { "min": 100, "max": 500 },
+  "sun": "partial",
+  "water": "medium",
+  "soil": ["clay", "sand", "loam", "chalk"],
+  "season": ["spring", "summer", "autumn", "winter"],
+  "evergreen": true,
+  "color": "#2E5E1E",
+  "notes": "Classic evergreen hedging and topiary shrub with small, dense, glossy leaves. Tolerates heavy clipping and thrives in most soils. Slow-growing but very long-lived."
+}
